@@ -1,0 +1,54 @@
+//@version=5
+indicator("BAKOME Pro Signal", shorttitle="BAKOME-PRO", overlay=true)
+
+// === Paramètres (optimaux pour débutants) ===
+atrLength      = input.int(14, "ATR Length", minval=7)
+atrExpandMult  = input.float(1.2, "Expansion Multiplier", minval=1.0, step=0.1)
+volMultiplier  = input.float(1.8, "Volume Spike Mult", minval=1.5)
+emaTrendLen    = input.int(50, "Trend EMA", minval=20)
+emaLongLen     = input.int(200, "Major EMA", minval=100)
+
+// === Calculs ===
+atrValue     = ta.atr(atrLength)
+prevAtr      = atrValue[1]
+atrExpanding = atrValue > prevAtr * atrExpandMult and atrValue > ta.sma(atrValue, 5)
+
+volEMA       = ta.ema(volume, 20)
+volumeSpike  = volume > volEMA * volMultiplier
+
+priceEMA     = ta.ema(close, emaTrendLen)
+priceEMA200  = ta.ema(close, emaLongLen)
+
+// === Cassure de structure ===
+swingHigh = ta.pivothigh(high, 2, 2)
+swingLow  = ta.pivotlow(low, 2, 2)
+bullBreak = ta.crossover(high, nz(swingHigh[1])) and close > open
+bearBreak = ta.crossunder(low, nz(swingLow[1])) and close < open
+
+// === Confluence EMA ===
+bullTrend = close > priceEMA and priceEMA > priceEMA200
+bearTrend = close < priceEMA and priceEMA < priceEMA200
+
+// === Signaux bidirectionnels ===
+longSignal  = atrExpanding and bullBreak and volumeSpike and bullTrend
+shortSignal = atrExpanding and bearBreak and volumeSpike and bearTrend
+
+// === Graphiques ===
+plot(priceEMA,    color=#2962FF, title="Trend EMA", linewidth=2)
+plot(priceEMA200, color=#FF6D00, title="Major EMA", linewidth=3)
+
+// Indicateur d'expansion
+plot(atrExpanding ? atrValue : na, color=color.orange, style=plot.style_circles, linewidth=3, title="Expansion")
+
+// Arrière-plans + étiquettes
+bgcolor(longSignal  ? color.new(#00FF00, 80) : na, title="BAKOME Long")
+bgcolor(shortSignal ? color.new(#FF0000, 80) : na, title="BAKOME Short")
+
+if longSignal
+    label.new(bar_index, low, "🚀 BAKOME BUY", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.large, yloc=yloc.belowbar)
+if shortSignal
+    label.new(bar_index, high, "🔻 BAKOME SELL", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.large, yloc=yloc.abovebar)
+
+// Alertes
+alertcondition(longSignal,  title="🚀 BAKOME Buy",  message="BAKOME Pro: Signal ACHAT")
+alertcondition(shortSignal, title="🔻 BAKOME Sell", message="BAKOME Pro: Signal VENTE")
